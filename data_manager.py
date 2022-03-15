@@ -49,27 +49,20 @@ def create_time():
     return int(time.time())
 
 
-def create_new_line(question):
-    new_line = {'id': util.generate_question_id(), 'submission_time': create_time(), 'view_number': 0, 'vote_number':  0,
-                'title': question['title'], 'message': question['message'], 'image': ""}
-    return new_line
-
-
-def add_question_table(question):
+def add_question_table(new_question):
     current_data = connection.read_questions()
-    new_line = create_new_line(question)
-    current_data.append(new_line)
+    current_data.append(new_question)
     connection.write_questions(current_data)
 
 
-def add_answer_to_file(answer, question_id):
+def add_answer_to_file(answer, question_id, answer_id, filename):
     answer_dictionary = {}
-    answer_dictionary['id'] = util.generate_answer_id()
+    answer_dictionary['id'] = answer_id
     answer_dictionary['submission_time'] = create_time()
     answer_dictionary['vote_number'] = 0
     answer_dictionary['question_id'] = question_id
     answer_dictionary['message'] = answer
-    answer_dictionary['image'] = ''
+    answer_dictionary['image'] = filename
     answers_list = connection.read_answers()
     answers_list.append(answer_dictionary)
     connection.write_answers(answers_list)

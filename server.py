@@ -2,11 +2,12 @@ from flask import Flask, render_template, request, redirect, send_from_directory
 from werkzeug.utils import secure_filename
 import os
 import data_manager
+import util
 
 # at this time, the file reading method only supports the absolute path,
 # which is subject to change, depending on the server running the software
 
-UPLOAD_FOLDER = '/home/iulian/PycharmProjects/ask-mate-python/static/img'
+UPLOAD_FOLDER = '/home/dan/codecool/web/w1/askmate/ask-mate-python/static/img'
 ALLOWED_EXTENSIONS = {'png', 'jpg'}
 
 app = Flask(__name__)
@@ -75,12 +76,19 @@ def route_list():
                                    category=sort_by,
                                    questions=questions)
     elif request.method == 'POST':
-        new_data = request.form
         file = request.files['file']
+        new_question_id = util.generate_question_id()
         if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
+            filename = "q" + str(new_question_id) + secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        data_manager.add_question_table(new_data)
+        new_question = {"id": new_question_id,
+                        "submission_time": data_manager.create_time(),
+                        "view_number": 0,
+                        "vote_number": 0,
+                        'title': request.form['title'],
+                        'message': request.form['message'],
+                        'image': '/static/img/' + filename if file.filename else ''}
+        data_manager.add_question_table(new_question)
         questions = data_manager.get_all_questions()
         return render_template('/list.html',
                                questions=questions)
@@ -102,7 +110,13 @@ def display_question(question_id):
                                answers=answers,
                                question_id=question_id)
     elif request.method == 'POST':
-        data_manager.add_answer_to_file(request.form['post_answer'], question_id)
+        file = request.files['file']
+        new_answer_id = util.generate_answer_id()
+        if file and allowed_file(file.filename):
+            filename = 'a' + str(new_answer_id) + secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        filename = '/static/img/' + filename
+        data_manager.add_answer_to_file(request.form['post_answer'], question_id, new_answer_id, filename)
         question = data_manager.get_question(question_id)
         answers = data_manager.get_answers(question_id)
         return render_template('question.html',
@@ -118,6 +132,7 @@ def delete_question(question_id):
     while i < len(questions):
         if questions[i]['id'] == question_id:
             question_id = questions[i]['id']
+            image_name = questions[i]['image']
             questions.pop(i)
         i += 1
     data_manager.write_all_questions(questions)
@@ -129,6 +144,8 @@ def delete_question(question_id):
         j += 1
     data_manager.write_all_answers(answers)
     questions = data_manager.get_all_questions()
+    complete_path = f"/home/dan/codecool/web/w1/askmate/ask-mate-python{image_name}"
+    os.remove(complete_path)
     return render_template('list.html',
                            questions=questions)
 
@@ -203,9 +220,12 @@ def delete_answer(answer_id):
     while i < len(answers):
         if answers[i]['id'] == answer_id:
             question_id = answers[i]['question_id']
+            image_name = answers[i]['image']
             answers.pop(i)
         i += 1
     data_manager.write_all_answers(answers)
+    complete_path = f"/home/dan/codecool/web/w1/askmate/ask-mate-python{image_name}"
+    os.remove(complete_path)
     question = data_manager.get_question(question_id)
     answers = data_manager.get_answers(question_id)
     return render_template('question.html',
@@ -214,14 +234,9 @@ def delete_answer(answer_id):
                            question_id=question_id)
 
 
-@app.route('/add-question', methods=['GET', 'POST'])
+@app.route('/add-question')
 def add_question():
-    if request.method == 'POST':
-        new_data = request.form
-        data_manager.add_question_table(new_data)
-        return redirect('/')
-    else:
-        return render_template('/add-question.html')
+    return render_template('/add-question.html')
 
 
 @app.route('/question/<question_id>/vote_up')
